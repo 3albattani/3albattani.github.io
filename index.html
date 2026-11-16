@@ -94,9 +94,10 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transfor
 
 <div class="modal hide" id="settings"><div class="set">
   <h2>Booth settings</h2>
-  <p>Only for the person running the booth. Saved on this iPad. <b>App version 9</b> (no QR on receipt).</p>
+  <p>Only for the person running the booth. Saved on this iPad. <b>App version 10</b> (no QR on receipt).</p>
   <label for="sScript">Google Apps Script URL</label><input id="sScript" placeholder="https://script.google.com/macros/s/…/exec">
   <label for="sKey">Secret key (same as in the script)</label><input id="sKey">
+  <div class="btns" style="margin-top:12px"><button class="b" id="pingBtn">Test Google Drive connection</button></div><p id="pingSt" style="margin:8px 0 0;font-size:15px"></p>
   <label for="sFolder">Google Drive folder link (for the “All photos” QR)</label><input id="sFolder" placeholder="https://drive.google.com/drive/folders/…">
   <label for="sMode">How to print</label>
   <select id="sMode"><option value="ble">Bluetooth printer (needs the Bluefy browser)</option><option value="share">Send to printer app (tap Print each time)</option><option value="none">Don't print</option></select>
@@ -286,15 +287,28 @@ $('testBtn').onclick=async()=>{
 };
 
 // ---------- upload to Google Drive ----------
+function jsonp(params){return new Promise((ok,no)=>{
+  const cb='pb'+Date.now()+Math.floor(Math.random()*1e4),sc=document.createElement('script');
+  const clean=()=>{clearTimeout(t);try{delete window[cb]}catch(e){}sc.remove()};
+  const t=setTimeout(()=>{clean();no(new Error('no answer from the script (check Who has access: Anyone)'))},15000);
+  window[cb]=d=>{clean();ok(d)};sc.onerror=()=>{clean();no(new Error('the script link was refused (check Who has access: Anyone, and the /exec link)'))};
+  sc.src=cfg.script+(cfg.script.includes('?')?'&':'?')+new URLSearchParams(Object.assign({},params,{callback:cb}));document.head.appendChild(sc)})}
 async function upload(c){
   if(!cfg.script)return null;
-  const ctl=new AbortController(),t=setTimeout(()=>ctl.abort(),30000);
-  try{const name='al-battani-2026-'+new Date().toISOString().slice(5,19).replace(/[:T]/g,'-')+'.jpg';
-    const r=await fetch(cfg.script,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},signal:ctl.signal,
-      body:JSON.stringify({key:cfg.key,name,data:c.toDataURL('image/jpeg',.9).split(',')[1]})});
+  const name='al-battani-2026-'+new Date().toISOString().slice(5,19).replace(/[:T]/g,'-')+'-'+Math.floor(Math.random()*1e4)+'.jpg';
+  const body=JSON.stringify({key:cfg.key,name,data:c.toDataURL('image/jpeg',.9).split(',')[1]});
+  try{const ctl=new AbortController(),t=setTimeout(()=>ctl.abort(),30000);
+    const r=await fetch(cfg.script,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},signal:ctl.signal,body});clearTimeout(t);
     const j=await r.json();if(!j.ok)throw new Error(j.error||'upload failed');return j.view}
-  finally{clearTimeout(t)}
+  catch(e){if(e.name==='AbortError'||(e.message&&!/load failed|failed to fetch|networkerror|json/i.test(e.message)))throw e}
+  // fallback for Safari: send without reading the reply, then ask the script for the link
+  await fetch(cfg.script,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body});
+  let last='not found';
+  for(let i=0;i<5;i++){await wait(2000);const j=await jsonp({find:name,key:cfg.key});if(j.ok&&j.view)return j.view;last=j.error||last;if(/key|Exception|Invalid/i.test(last))break}
+  throw new Error(last);
 }
+$('pingBtn').onclick=async()=>{readSet();const el=$('pingSt');if(!cfg.script){el.textContent='❌ Paste the Google script link first.';return}
+  el.textContent='Testing…';try{const j=await jsonp({ping:1,key:cfg.key});el.textContent=j.ok?'✅ '+j.message:'❌ '+j.error}catch(e){el.textContent='❌ '+e.message}};
 
 // ---------- finish ----------
 function qrSvg(el,link){if(!link||!window.qrcode){el.innerHTML='';return}const q=qrcode(0,'M');q.addData(link);q.make();el.innerHTML=q.createSvgTag({cellSize:8,margin:2,scalable:true})}
