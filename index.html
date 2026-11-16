@@ -94,7 +94,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transfor
 
 <div class="modal hide" id="settings"><div class="set">
   <h2>Booth settings</h2>
-  <p>Only for the person running the booth. Saved on this iPad. <b>App version 12</b> (no QR on receipt).</p>
+  <p>Only for the person running the booth. Saved on this iPad. <b>App version 13</b> (no QR on receipt).</p>
   <label for="sScript">Google Apps Script URL</label><input id="sScript" placeholder="https://script.google.com/macros/s/…/exec">
   <label for="sKey">Secret key (same as in the script)</label><input id="sKey">
   <div class="btns" style="margin-top:12px"><button class="b" id="pingBtn">Test Google Drive connection</button></div><p id="pingSt" style="margin:8px 0 0;font-size:15px"></p>
@@ -228,19 +228,18 @@ function buildReceipt(link){
   x.fillText(new Date().toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}),W/2,y+Math.round(10*s));y+=Math.round(50*s);
   const H=y,out=document.createElement('canvas');out.width=W;out.height=H;out.getContext('2d').drawImage(c,0,0);
   if(!label)return mono(out,photos);
-  // 4x6 label: keep smooth greys (the label app does its own dithering), centre on the label, apply nudge
-  const ox=out.getContext('2d');photos.forEach(([a,b,w,h])=>{const d=ox.getImageData(a,b,w,h),p=d.data;
-    for(let i=0;i<p.length;i+=4){let l=.299*p[i]+.587*p[i+1]+.114*p[i+2];l=Math.min(255,Math.max(0,(l-128)*1.25+128+12));p[i]=p[i+1]=p[i+2]=l}ox.putImageData(d,a,b)});
-  const LW=812,LH=1218,sc=Math.min((LW-40)/W,(LH-40)/H),dw=Math.round(W*sc),dh=Math.round(H*sc),lc=document.createElement('canvas');lc.width=LW;lc.height=LH;
-  const lx=lc.getContext('2d');lx.fillStyle='#fff';lx.fillRect(0,0,LW,LH);lx.imageSmoothingQuality='high';
-  lx.drawImage(out,Math.round((LW-dw)/2+(+cfg.offX||0)*8),Math.round((LH-dh)/2+(+cfg.offY||0)*8),dw,dh);
-  return {canvas:lc,bits:null,W:LW,H:LH};
+  // 4x6 label = 100x150 mm at 203 dpi = exactly 800x1200 dots, dithered here so the label app prints it 1:1
+  const LW=800,LH=1200,sc=Math.min((LW-32)/W,(LH-32)/H),dw=Math.round(W*sc),dh=Math.round(H*sc);
+  const X0=Math.round((LW-dw)/2+(+cfg.offX||0)*8),Y0=Math.round((LH-dh)/2+(+cfg.offY||0)*8),lc=document.createElement('canvas');lc.width=LW;lc.height=LH;
+  const lx=lc.getContext('2d');lx.fillStyle='#fff';lx.fillRect(0,0,LW,LH);lx.imageSmoothingQuality='high';lx.drawImage(out,X0,Y0,dw,dh);
+  const rects=photos.map(([a,b,w,h])=>[Math.max(0,Math.round(X0+a*sc)),Math.max(0,Math.round(Y0+b*sc)),Math.round(w*sc),Math.round(h*sc)]).map(([a,b,w,h])=>[a,b,Math.min(w,LW-a),Math.min(h,LH-b)]);
+  const m=mono(lc,rects);m.bits=null;return m;
 }
 function mono(c,photos){
   const W=c.width,H=c.height,x=c.getContext('2d'),im=x.getImageData(0,0,W,H),d=im.data,g=new Float32Array(W*H),bits=new Uint8Array(W*H);
   for(let i=0;i<W*H;i++)g[i]=.299*d[i*4]+.587*d[i*4+1]+.114*d[i*4+2];
   const inP=new Uint8Array(W*H);
-  photos.forEach(([px,py,pw,ph])=>{for(let yy=py;yy<py+ph&&yy<H;yy++)for(let xx=px;xx<px+pw;xx++){const i=yy*W+xx;inP[i]=1;g[i]=Math.min(255,Math.max(0,(g[i]-128)*1.2+128+22))}});
+  photos.forEach(([px,py,pw,ph])=>{for(let yy=py;yy<py+ph&&yy<H;yy++)for(let xx=px;xx<px+pw;xx++){const i=yy*W+xx;inP[i]=1;g[i]=Math.min(255,Math.max(0,(g[i]-128)*1.1+128+6))}});
   for(let yy=0;yy<H;yy++)for(let xx=0;xx<W;xx++){const i=yy*W+xx;
     if(!inP[i]){bits[i]=g[i]<140?1:0;continue}
     const old=g[i],nw=old<128?0:255,e=old-nw;bits[i]=nw?0:1;
