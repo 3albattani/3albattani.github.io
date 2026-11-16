@@ -94,7 +94,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transfor
 
 <div class="modal hide" id="settings"><div class="set">
   <h2>Booth settings</h2>
-  <p>Only for the person running the booth. Saved on this iPad. <b>App version 11</b> (no QR on receipt).</p>
+  <p>Only for the person running the booth. Saved on this iPad. <b>App version 12</b> (no QR on receipt).</p>
   <label for="sScript">Google Apps Script URL</label><input id="sScript" placeholder="https://script.google.com/macros/s/…/exec">
   <label for="sKey">Secret key (same as in the script)</label><input id="sKey">
   <div class="btns" style="margin-top:12px"><button class="b" id="pingBtn">Test Google Drive connection</button></div><p id="pingSt" style="margin:8px 0 0;font-size:15px"></p>
@@ -103,6 +103,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transfor
   <select id="sMode"><option value="ble">Bluetooth printer (needs the Bluefy browser)</option><option value="share">Send to printer app (tap Print each time)</option><option value="none">Don't print</option></select>
   <label for="sWidth">Paper width</label>
   <select id="sWidth"><option value="label">4×6 inch label (FlashLabel / shipping label printer)</option><option value="384">58 mm receipt (384 dots)</option><option value="576">80 mm receipt (576 dots)</option></select>
+  <label for="sOffX">Label position nudge (mm): left/right, up/down</label><div style="display:flex;gap:10px"><input id="sOffX" type="number" step="1" placeholder="0 (− = left, + = right)"><input id="sOffY" type="number" step="1" placeholder="0 (− = up, + = down)"></div>
   <label for="sCam">Where is the iPad camera?</label>
   <select id="sCam"><option value="top">Top of the screen</option><option value="left">Left side</option><option value="right">Right side</option></select>
   <div class="btns" style="margin-top:16px"><button class="b" id="bleBtn">Connect Bluetooth printer</button><button class="b" id="testBtn">Test print</button></div>
@@ -226,9 +227,14 @@ function buildReceipt(link){
   x.font=`600 ${Math.round(18*s)}px Fredoka, sans-serif`;
   x.fillText(new Date().toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}),W/2,y+Math.round(10*s));y+=Math.round(50*s);
   const H=y,out=document.createElement('canvas');out.width=W;out.height=H;out.getContext('2d').drawImage(c,0,0);
-  const r=mono(out,photos);if(!label)return r;
-  const LW=812,LH=1218,lc=document.createElement('canvas');lc.width=LW;lc.height=LH;const lx=lc.getContext('2d');lx.fillStyle='#fff';lx.fillRect(0,0,LW,LH);
-  lx.drawImage(r.canvas,Math.round((LW-W)/2),Math.max(0,Math.round((LH-H)/2)));return {canvas:lc,bits:null,W:LW,H:LH};
+  if(!label)return mono(out,photos);
+  // 4x6 label: keep smooth greys (the label app does its own dithering), centre on the label, apply nudge
+  const ox=out.getContext('2d');photos.forEach(([a,b,w,h])=>{const d=ox.getImageData(a,b,w,h),p=d.data;
+    for(let i=0;i<p.length;i+=4){let l=.299*p[i]+.587*p[i+1]+.114*p[i+2];l=Math.min(255,Math.max(0,(l-128)*1.25+128+12));p[i]=p[i+1]=p[i+2]=l}ox.putImageData(d,a,b)});
+  const LW=812,LH=1218,sc=Math.min((LW-40)/W,(LH-40)/H),dw=Math.round(W*sc),dh=Math.round(H*sc),lc=document.createElement('canvas');lc.width=LW;lc.height=LH;
+  const lx=lc.getContext('2d');lx.fillStyle='#fff';lx.fillRect(0,0,LW,LH);lx.imageSmoothingQuality='high';
+  lx.drawImage(out,Math.round((LW-dw)/2+(+cfg.offX||0)*8),Math.round((LH-dh)/2+(+cfg.offY||0)*8),dw,dh);
+  return {canvas:lc,bits:null,W:LW,H:LH};
 }
 function mono(c,photos){
   const W=c.width,H=c.height,x=c.getContext('2d'),im=x.getImageData(0,0,W,H),d=im.data,g=new Float32Array(W*H),bits=new Uint8Array(W*H);
@@ -334,10 +340,10 @@ $('printBtn').onclick=()=>{$('printBtn').classList.toggle('hide',cfg.mode!=='sha
 let hold=null;
 $('gear').addEventListener('pointerdown',()=>{hold=setTimeout(openSet,900)});
 ['pointerup','pointerleave','pointercancel'].forEach(ev=>$('gear').addEventListener(ev,()=>clearTimeout(hold)));
-function openSet(){$('sScript').value=cfg.script;$('sKey').value=cfg.key;$('sFolder').value=cfg.folder;$('sMode').value=cfg.mode;$('sWidth').value=String(cfg.width);$('sCam').value=cfg.cam;
+function openSet(){$('sScript').value=cfg.script;$('sKey').value=cfg.key;$('sFolder').value=cfg.folder;$('sMode').value=cfg.mode;$('sWidth').value=String(cfg.width);$('sCam').value=cfg.cam;$('sOffX').value=cfg.offX||'';$('sOffY').value=cfg.offY||'';
   if(!navigator.bluetooth)bleSt('No Bluetooth in this browser. For Bluetooth printing on iPad, open this page in Bluefy.');$('settings').classList.remove('hide')}
-function readSet(){cfg.script=$('sScript').value.trim();cfg.key=$('sKey').value.trim();cfg.folder=$('sFolder').value.trim();cfg.mode=$('sMode').value;cfg.width=$('sWidth').value==='label'?'label':+$('sWidth').value;cfg.cam=$('sCam').value;saveCfg();idleQr()}
-['sScript','sKey','sFolder','sMode','sWidth','sCam'].forEach(id=>$(id).addEventListener('change',readSet));
+function readSet(){cfg.script=$('sScript').value.trim();cfg.key=$('sKey').value.trim();cfg.folder=$('sFolder').value.trim();cfg.mode=$('sMode').value;cfg.width=$('sWidth').value==='label'?'label':+$('sWidth').value;cfg.cam=$('sCam').value;cfg.offX=+$('sOffX').value||0;cfg.offY=+$('sOffY').value||0;saveCfg();idleQr()}
+['sScript','sKey','sFolder','sMode','sWidth','sCam','sOffX','sOffY'].forEach(id=>$(id).addEventListener('change',readSet));
 $('closeSet').onclick=()=>{readSet();$('settings').classList.add('hide')};
 function idleQr(){$('idleQr').classList.toggle('hide',!cfg.folder);qrSvg($('idleQrS'),cfg.folder)}
 
