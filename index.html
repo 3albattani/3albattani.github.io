@@ -94,7 +94,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transfor
 
 <div class="modal hide" id="settings"><div class="set">
   <h2>Booth settings</h2>
-  <p>Only for the person running the booth. Saved on this iPad. <b>App version 10</b> (no QR on receipt).</p>
+  <p>Only for the person running the booth. Saved on this iPad. <b>App version 11</b> (no QR on receipt).</p>
   <label for="sScript">Google Apps Script URL</label><input id="sScript" placeholder="https://script.google.com/macros/s/…/exec">
   <label for="sKey">Secret key (same as in the script)</label><input id="sKey">
   <div class="btns" style="margin-top:12px"><button class="b" id="pingBtn">Test Google Drive connection</button></div><p id="pingSt" style="margin:8px 0 0;font-size:15px"></p>
@@ -102,7 +102,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transfor
   <label for="sMode">How to print</label>
   <select id="sMode"><option value="ble">Bluetooth printer (needs the Bluefy browser)</option><option value="share">Send to printer app (tap Print each time)</option><option value="none">Don't print</option></select>
   <label for="sWidth">Paper width</label>
-  <select id="sWidth"><option value="384">58 mm (384 dots)</option><option value="576">80 mm (576 dots)</option></select>
+  <select id="sWidth"><option value="label">4×6 inch label (FlashLabel / shipping label printer)</option><option value="384">58 mm receipt (384 dots)</option><option value="576">80 mm receipt (576 dots)</option></select>
   <label for="sCam">Where is the iPad camera?</label>
   <select id="sCam"><option value="top">Top of the screen</option><option value="left">Left side</option><option value="right">Right side</option></select>
   <div class="btns" style="margin-top:16px"><button class="b" id="bleBtn">Connect Bluetooth printer</button><button class="b" id="testBtn">Test print</button></div>
@@ -114,7 +114,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transfor
 {
 const $=id=>document.getElementById(id);
 const TITLE='3 Al-Battani',YEAR='2026',SHOTS=3,SNAP_SECS=3,DONE_SECS=60;
-const DEF={script:'',key:'',folder:'',mode:'ble',width:384,cam:'top'};
+const DEF={script:'',key:'',folder:'',mode:'share',width:'label',cam:'top'};
 let cfg=Object.assign({},DEF);try{Object.assign(cfg,JSON.parse(localStorage.getItem('albattani-booth')||'{}'))}catch(e){}
 const saveCfg=()=>{try{localStorage.setItem('albattani-booth',JSON.stringify(cfg))}catch(e){}};
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
@@ -218,7 +218,7 @@ function drawQr(x,link,X,Y,size){const q=qrcode(0,'M');q.addData(link);q.make();
   x.fillStyle='#fff';x.fillRect(X,Y,size,size);x.fillStyle='#000';
   for(let r=0;r<n;r++)for(let k=0;k<n;k++)if(q.isDark(r,k))x.fillRect(Math.floor(X+(k+1)*m),Math.floor(Y+(r+1)*m),Math.ceil(m),Math.ceil(m))}
 function buildReceipt(link){
-  const W=+cfg.width,s=W/384,k=s/2,blackH=stripH(k),c=document.createElement('canvas');c.width=W;c.height=blackH+Math.round(560*s);
+  const label=cfg.width==='label',W=label?768:+cfg.width,s=W/384,k=s/2,blackH=stripH(k),c=document.createElement('canvas');c.width=W;c.height=blackH+Math.round(560*s);
   const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,W,c.height);
   const A=filmStrip(x,0,k,false),B=filmStrip(x,W/2,k,false),photos=[...A.rects,...B.rects];
   x.textAlign='center';x.textBaseline='middle';
@@ -226,7 +226,9 @@ function buildReceipt(link){
   x.font=`600 ${Math.round(18*s)}px Fredoka, sans-serif`;
   x.fillText(new Date().toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}),W/2,y+Math.round(10*s));y+=Math.round(50*s);
   const H=y,out=document.createElement('canvas');out.width=W;out.height=H;out.getContext('2d').drawImage(c,0,0);
-  return mono(out,photos);
+  const r=mono(out,photos);if(!label)return r;
+  const LW=812,LH=1218,lc=document.createElement('canvas');lc.width=LW;lc.height=LH;const lx=lc.getContext('2d');lx.fillStyle='#fff';lx.fillRect(0,0,LW,LH);
+  lx.drawImage(r.canvas,Math.round((LW-W)/2),Math.max(0,Math.round((LH-H)/2)));return {canvas:lc,bits:null,W:LW,H:LH};
 }
 function mono(c,photos){
   const W=c.width,H=c.height,x=c.getContext('2d'),im=x.getImageData(0,0,W,H),d=im.data,g=new Float32Array(W*H),bits=new Uint8Array(W*H);
@@ -241,7 +243,7 @@ function mono(c,photos){
   for(let i=0;i<W*H;i++){const v=bits[i]?0:255;d[i*4]=d[i*4+1]=d[i*4+2]=v;d[i*4+3]=255}
   x.putImageData(im,0,0);return {canvas:c,bits,W,H};
 }
-function escpos(r){
+function escpos(r){if(!r.bits)throw new Error('Bluetooth printing only works with 58/80 mm receipt printers. Choose Send to printer app.');
   const bpr=r.W/8,parts=[Uint8Array.of(0x1B,0x40)];
   for(let y0=0;y0<r.H;y0+=96){const h=Math.min(96,r.H-y0),d=new Uint8Array(bpr*h);
     for(let y=0;y<h;y++)for(let x=0;x<r.W;x++)if(r.bits[(y0+y)*r.W+x])d[y*bpr+(x>>3)]|=0x80>>(x&7);
@@ -334,7 +336,7 @@ $('gear').addEventListener('pointerdown',()=>{hold=setTimeout(openSet,900)});
 ['pointerup','pointerleave','pointercancel'].forEach(ev=>$('gear').addEventListener(ev,()=>clearTimeout(hold)));
 function openSet(){$('sScript').value=cfg.script;$('sKey').value=cfg.key;$('sFolder').value=cfg.folder;$('sMode').value=cfg.mode;$('sWidth').value=String(cfg.width);$('sCam').value=cfg.cam;
   if(!navigator.bluetooth)bleSt('No Bluetooth in this browser. For Bluetooth printing on iPad, open this page in Bluefy.');$('settings').classList.remove('hide')}
-function readSet(){cfg.script=$('sScript').value.trim();cfg.key=$('sKey').value.trim();cfg.folder=$('sFolder').value.trim();cfg.mode=$('sMode').value;cfg.width=+$('sWidth').value;cfg.cam=$('sCam').value;saveCfg();idleQr()}
+function readSet(){cfg.script=$('sScript').value.trim();cfg.key=$('sKey').value.trim();cfg.folder=$('sFolder').value.trim();cfg.mode=$('sMode').value;cfg.width=$('sWidth').value==='label'?'label':+$('sWidth').value;cfg.cam=$('sCam').value;saveCfg();idleQr()}
 ['sScript','sKey','sFolder','sMode','sWidth','sCam'].forEach(id=>$(id).addEventListener('change',readSet));
 $('closeSet').onclick=()=>{readSet();$('settings').classList.add('hide')};
 function idleQr(){$('idleQr').classList.toggle('hide',!cfg.folder);qrSvg($('idleQrS'),cfg.folder)}
