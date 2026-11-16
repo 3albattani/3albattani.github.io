@@ -94,7 +94,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transfor
 
 <div class="modal hide" id="settings"><div class="set">
   <h2>Booth settings</h2>
-  <p>Only for the person running the booth. Saved on this iPad. <b>App version 13</b> (no QR on receipt).</p>
+  <p>Only for the person running the booth. Saved on this iPad. <b>App version 14</b> (no QR on receipt).</p>
   <label for="sScript">Google Apps Script URL</label><input id="sScript" placeholder="https://script.google.com/macros/s/…/exec">
   <label for="sKey">Secret key (same as in the script)</label><input id="sKey">
   <div class="btns" style="margin-top:12px"><button class="b" id="pingBtn">Test Google Drive connection</button></div><p id="pingSt" style="margin:8px 0 0;font-size:15px"></p>
@@ -104,6 +104,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transfor
   <label for="sWidth">Paper width</label>
   <select id="sWidth"><option value="label">4×6 inch label (FlashLabel / shipping label printer)</option><option value="384">58 mm receipt (384 dots)</option><option value="576">80 mm receipt (576 dots)</option></select>
   <label for="sOffX">Label position nudge (mm): left/right, up/down</label><div style="display:flex;gap:10px"><input id="sOffX" type="number" step="1" placeholder="0 (− = left, + = right)"><input id="sOffY" type="number" step="1" placeholder="0 (− = up, + = down)"></div>
+  <label for="sStyle">Photo style on the print</label><select id="sStyle"><option value="halftone">Newspaper dots (even, recommended for labels)</option><option value="fine">Fine dots</option><option value="bold">Bold black &amp; white (no dots)</option></select>
   <label for="sCam">Where is the iPad camera?</label>
   <select id="sCam"><option value="top">Top of the screen</option><option value="left">Left side</option><option value="right">Right side</option></select>
   <div class="btns" style="margin-top:16px"><button class="b" id="bleBtn">Connect Bluetooth printer</button><button class="b" id="testBtn">Test print</button></div>
@@ -240,8 +241,11 @@ function mono(c,photos){
   for(let i=0;i<W*H;i++)g[i]=.299*d[i*4]+.587*d[i*4+1]+.114*d[i*4+2];
   const inP=new Uint8Array(W*H);
   photos.forEach(([px,py,pw,ph])=>{for(let yy=py;yy<py+ph&&yy<H;yy++)for(let xx=px;xx<px+pw;xx++){const i=yy*W+xx;inP[i]=1;g[i]=Math.min(255,Math.max(0,(g[i]-128)*1.1+128+6))}});
+  const st=cfg.style||'halftone',P=6,R2=Math.SQRT1_2;
   for(let yy=0;yy<H;yy++)for(let xx=0;xx<W;xx++){const i=yy*W+xx;
     if(!inP[i]){bits[i]=g[i]<140?1:0;continue}
+    if(st==='bold'){bits[i]=g[i]<118?1:0;continue}
+    if(st==='halftone'){let u=((xx+yy)*R2)%P,v=((xx-yy)*R2)%P;if(v<0)v+=P;u-=P/2;v-=P/2;const t=Math.min(1,Math.PI*(u*u+v*v)/(P*P));bits[i]=(255-g[i])/255>t?1:0;continue}
     const old=g[i],nw=old<128?0:255,e=old-nw;bits[i]=nw?0:1;
     if(xx+1<W&&inP[i+1])g[i+1]+=e*7/16;
     if(yy+1<H){if(xx>0&&inP[i+W-1])g[i+W-1]+=e*3/16;if(inP[i+W])g[i+W]+=e*5/16;if(xx+1<W&&inP[i+W+1])g[i+W+1]+=e/16}}
@@ -339,10 +343,10 @@ $('printBtn').onclick=()=>{$('printBtn').classList.toggle('hide',cfg.mode!=='sha
 let hold=null;
 $('gear').addEventListener('pointerdown',()=>{hold=setTimeout(openSet,900)});
 ['pointerup','pointerleave','pointercancel'].forEach(ev=>$('gear').addEventListener(ev,()=>clearTimeout(hold)));
-function openSet(){$('sScript').value=cfg.script;$('sKey').value=cfg.key;$('sFolder').value=cfg.folder;$('sMode').value=cfg.mode;$('sWidth').value=String(cfg.width);$('sCam').value=cfg.cam;$('sOffX').value=cfg.offX||'';$('sOffY').value=cfg.offY||'';
+function openSet(){$('sScript').value=cfg.script;$('sKey').value=cfg.key;$('sFolder').value=cfg.folder;$('sMode').value=cfg.mode;$('sWidth').value=String(cfg.width);$('sCam').value=cfg.cam;$('sStyle').value=cfg.style||'halftone';$('sOffX').value=cfg.offX||'';$('sOffY').value=cfg.offY||'';
   if(!navigator.bluetooth)bleSt('No Bluetooth in this browser. For Bluetooth printing on iPad, open this page in Bluefy.');$('settings').classList.remove('hide')}
-function readSet(){cfg.script=$('sScript').value.trim();cfg.key=$('sKey').value.trim();cfg.folder=$('sFolder').value.trim();cfg.mode=$('sMode').value;cfg.width=$('sWidth').value==='label'?'label':+$('sWidth').value;cfg.cam=$('sCam').value;cfg.offX=+$('sOffX').value||0;cfg.offY=+$('sOffY').value||0;saveCfg();idleQr()}
-['sScript','sKey','sFolder','sMode','sWidth','sCam','sOffX','sOffY'].forEach(id=>$(id).addEventListener('change',readSet));
+function readSet(){cfg.script=$('sScript').value.trim();cfg.key=$('sKey').value.trim();cfg.folder=$('sFolder').value.trim();cfg.mode=$('sMode').value;cfg.width=$('sWidth').value==='label'?'label':+$('sWidth').value;cfg.cam=$('sCam').value;cfg.style=$('sStyle').value;cfg.offX=+$('sOffX').value||0;cfg.offY=+$('sOffY').value||0;saveCfg();idleQr()}
+['sScript','sKey','sFolder','sMode','sWidth','sCam','sStyle','sOffX','sOffY'].forEach(id=>$(id).addEventListener('change',readSet));
 $('closeSet').onclick=()=>{readSet();$('settings').classList.add('hide')};
 function idleQr(){$('idleQr').classList.toggle('hide',!cfg.folder);qrSvg($('idleQrS'),cfg.folder)}
 
