@@ -19,7 +19,7 @@ html,body{margin:0;height:100%;background:#000;color:#fff;font:500 17px/1.4 Fred
 .view{position:relative;border-radius:20px;overflow:hidden;background:#141414}
 video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
 .thumbs{display:flex;gap:12px;justify-content:center;padding:14px 0 6px}
-.thumbs div{width:min(17vw,150px);aspect-ratio:4/3;border-radius:10px;border:2px dashed #555;background:#141414 center/cover;display:grid;place-items:center;color:#666;font-weight:700;font-size:26px}
+.thumbs div{width:min(13vw,110px);aspect-ratio:4/5;border-radius:10px;border:2px dashed #555;background:#141414 center/cover;display:grid;place-items:center;color:#666;font-weight:700;font-size:26px}
 .thumbs div.on{border:2px solid #fff;color:transparent}
 .year{text-align:center;font:700 clamp(38px,6vw,68px)/1.1 'Dancing Script',cursive}
 .ov{position:absolute;inset:0;display:grid;place-content:center;text-align:center;pointer-events:none;text-shadow:0 4px 22px rgba(0,0,0,.6)}
@@ -46,7 +46,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transfor
 .card{background:#fff;color:#111;border-radius:26px;padding:24px;width:min(94vw,900px);max-height:94vh;overflow:auto;display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:24px;align-items:center}
 @media(max-width:700px),(orientation:portrait) and (max-width:900px){.card{grid-template-columns:minmax(0,1fr)}}
 .card .rc{background:#eee;border-radius:14px;padding:12px;display:grid;place-items:center;max-height:70vh;overflow:auto}
-.card .rc img{width:100%;max-width:260px;display:block;image-rendering:pixelated;box-shadow:0 6px 16px rgba(0,0,0,.2)}
+.card .rc img{width:100%;max-width:260px;display:block;box-shadow:0 6px 16px rgba(0,0,0,.2)}
 .card h2{font-size:clamp(30px,4vw,44px);margin:0 0 4px;line-height:1.05}
 .card .qrbig{width:min(260px,60vw);margin:12px 0}
 .card .qrbig svg{width:100%;height:auto;display:block}
@@ -94,17 +94,17 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transfor
 
 <div class="modal hide" id="settings"><div class="set">
   <h2>Booth settings</h2>
-  <p>Only for the person running the booth. Saved on this iPad. <b>App version 20</b> (no QR on receipt).</p>
+  <p>Only for the person running the booth. Saved on this iPad. <b>App version 21</b> (no QR on receipt).</p>
   <label for="sScript">Google Apps Script URL</label><input id="sScript" placeholder="https://script.google.com/macros/s/…/exec">
   <label for="sKey">Secret key (same as in the script)</label><input id="sKey">
   <div class="btns" style="margin-top:12px"><button class="b" id="pingBtn">Test Google Drive connection</button></div><p id="pingSt" style="margin:8px 0 0;font-size:15px"></p>
   <label for="sFolder">Google Drive folder link (for the “All photos” QR)</label><input id="sFolder" placeholder="https://drive.google.com/drive/folders/…">
   <label for="sMode">How to print</label>
-  <select id="sMode"><option value="ble">Bluetooth printer (needs the Bluefy browser)</option><option value="share">Send to printer app (tap Print each time)</option><option value="none">Don't print</option></select>
-  <label for="sWidth">Paper width</label>
-  <select id="sWidth"><option value="label">4×6 inch label (FlashLabel / shipping label printer)</option><option value="384">58 mm receipt (384 dots)</option><option value="576">80 mm receipt (576 dots)</option></select>
+  <select id="sMode"><option value="ble">Bluetooth printer (needs the Bluefy browser)</option><option value="share">Print / send to printer app (tap Print each time)</option><option value="none">Don't print</option></select>
+  <label class="hide" for="sWidth">Paper width</label>
+  <select class="hide" id="sWidth"><option value="label">4×6 inch label (FlashLabel / shipping label printer)</option><option value="384">58 mm receipt (384 dots)</option><option value="576">80 mm receipt (576 dots)</option></select>
   <label for="sOffX">Label position nudge (mm): left/right, up/down</label><div style="display:flex;gap:10px"><input id="sOffX" type="number" step="1" placeholder="0 (− = left, + = right)"><input id="sOffY" type="number" step="1" placeholder="0 (− = up, + = down)"></div>
-  <label for="sStyle">Photo style on the print</label><select id="sStyle"><option value="fine">Fine dots (recommended)</option><option value="halftone">Newspaper dots</option><option value="bold">Bold black &amp; white (no dots)</option></select>
+  <label class="hide" for="sStyle">Photo style on the print</label><select class="hide" id="sStyle"><option value="fine">Fine dots (recommended)</option><option value="halftone">Newspaper dots</option><option value="bold">Bold black &amp; white (no dots)</option></select>
   <label for="sDev">Camera to use</label><select id="sDev"><option value="">Front camera (default)</option></select>
   <label for="sCam">Where is the iPad camera?</label>
   <select id="sCam"><option value="top">Top of the screen</option><option value="left">Left side</option><option value="right">Right side</option></select>
@@ -141,9 +141,10 @@ function sample(i){const c=document.createElement('canvas');c.width=640;c.height
   x.lineWidth=8;x.strokeStyle='#333';x.lineCap='round';[[220,255],[420,255]].forEach(([a,b])=>{x.beginPath();x.arc(a,b,40,.2,Math.PI-.2);x.stroke()});
   x.fillStyle='#fff';x.font='700 44px Fredoka, sans-serif';x.textAlign='center';x.fillText('Sample photo '+(i+1),320,430);return c}
 async function samplePreview(){if(busy)return;busy=true;$('idle').classList.remove('err');$('camErr').classList.add('hide');$('idle').classList.add('hide');shots=Array.from({length:SHOTS},(_,i)=>sample(i%3));thumbs();await finish()}
-function fitView(){const r=$('mid').getBoundingClientRect(),w=Math.min(r.width,r.height*4/3);$('view').style.width=w+'px';$('view').style.height=w*3/4+'px'}
+function fitView(){const r=$('mid').getBoundingClientRect(),w=Math.min(r.width,r.height*4/5);$('view').style.width=w+'px';$('view').style.height=w*5/4+'px'}
 new ResizeObserver(fitView).observe($('mid'));
-function grab(){const v=$('vid'),vw=v.videoWidth,vh=v.videoHeight,tw=Math.min(vw,vh*4/3),th=tw*3/4;
+const ASPECT=4/5;
+function grab(){const v=$('vid'),vw=v.videoWidth,vh=v.videoHeight,tw=Math.min(vw,vh*ASPECT),th=tw/ASPECT;
   const c=document.createElement('canvas');c.width=Math.round(tw);c.height=Math.round(th);const x=c.getContext('2d');
   x.translate(c.width,0);x.scale(-1,1);x.drawImage(v,(vw-tw)/2,(vh-th)/2,tw,th,0,0,c.width,c.height);return c}
 function showMsg(h){$('msg').innerHTML=h;$('msg').classList.toggle('hide',!h)}
@@ -254,23 +255,31 @@ function wideLayout(x,W,H,mode){
   x.restore();
   return rects;
 }
-function stripColor(){
-  const W=2400,H=1600,c=document.createElement('canvas');c.width=W;c.height=H;wideLayout(c.getContext('2d'),W,H,'color');return c;
+function portraitLayout(x,ox,oy,W,H){
+  // 2x2 grid of portrait photos, title block underneath (colour)
+  const s=W/800,m=Math.round(32*s),g=Math.round(14*s),T=Math.round(300*s);
+  let pw=Math.floor((W-2*m-g)/2),ph=Math.round(pw/ASPECT);const maxPh=Math.floor((H-2*m-g-T)/2);if(ph>maxPh){ph=maxPh;pw=Math.round(ph*ASPECT)}
+  const gx=ox+Math.round((W-2*pw-g)/2);
+  x.fillStyle='#fff';x.fillRect(ox,oy,W,H);
+  shots.forEach((sh,i)=>drawCover(x,sh,gx+(i%2)*(pw+g),Math.round(oy+m+Math.floor(i/2)*(ph+g)),pw,ph));
+  const top=oy+m+2*ph+g,cy=top+(oy+H-top)/2,cx=ox+W/2,tw=W-2*m-60*s;
+  x.fillStyle='#1a1a1a';x.strokeStyle='#1a1a1a';x.textBaseline='middle';x.textAlign='center';
+  fitScript(x,TITLE,tw,Math.round(84*s));x.fillText(TITLE,cx,cy-82*s);
+  x.lineWidth=Math.max(1,2.5*s);x.beginPath();x.moveTo(cx-50*s,cy-18*s);x.lineTo(cx+50*s,cy-18*s);x.stroke();
+  fitSpaced(x,YEAR,tw,Math.round(34*s),9*s);spaced(x,YEAR,cx,cy+26*s,9*s);
+  fitSpaced(x,SCHOOL,tw,Math.round(28*s),7*s);spaced(x,SCHOOL,cx,cy+78*s,7*s);
 }
+function stripColor(){const W=1200,H=1800,c=document.createElement('canvas');c.width=W;c.height=H;portraitLayout(c.getContext('2d'),0,0,W,H);return c}
 
 // ---------- receipt (1-bit for thermal printer) ----------
 function drawQr(x,link,X,Y,size){const q=qrcode(0,'M');q.addData(link);q.make();const n=q.getModuleCount(),m=size/(n+2);
   x.fillStyle='#fff';x.fillRect(X,Y,size,size);x.fillStyle='#000';
   for(let r=0;r<n;r++)for(let k=0;k<n;k++)if(q.isDark(r,k))x.fillRect(Math.floor(X+(k+1)*m),Math.floor(Y+(r+1)*m),Math.ceil(m),Math.ceil(m))}
 function buildReceipt(link){
-  // drawn landscape, then turned 90 degrees onto the portrait label/receipt
-  const label=cfg.width==='label',PW=label?800:+cfg.width,PH=Math.round(PW*1.5);
-  const L=document.createElement('canvas');L.width=PH;L.height=PW;const rects=wideLayout(L.getContext('2d'),PH,PW,'raw');
-  const c=document.createElement('canvas');c.width=PW;c.height=PH;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,PW,PH);
-  const ox=label?Math.round((+cfg.offX||0)*8):0,oy=label?Math.round((+cfg.offY||0)*8):0;
-  x.save();x.translate(PW+ox,oy);x.rotate(Math.PI/2);x.drawImage(L,0,0);x.restore();
-  const r=rects.map(([a,b,w,h])=>[PW-(b+h)+ox,a+oy,h,w]).map(([a,b,w,h])=>{const A=Math.max(0,a),B=Math.max(0,b);return [A,B,Math.max(0,Math.min(w,PW-A)),Math.max(0,Math.min(h,PH-B))]});
-  const m=mono(c,r);if(label)m.bits=null;return m;
+  // full-colour 4x6 inch print at 300 dpi (1200x1800), optional nudge in mm
+  const W=1200,H=1800,c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,W,H);
+  portraitLayout(x,Math.round((+cfg.offX||0)*12),Math.round((+cfg.offY||0)*12),W,H);
+  return {canvas:c,bits:null,W,H};
 }
 function mono(c,photos){
   const W=c.width,H=c.height,x=c.getContext('2d'),im=x.getImageData(0,0,W,H),d=im.data,g=new Float32Array(W*H),bits=new Uint8Array(W*H);
