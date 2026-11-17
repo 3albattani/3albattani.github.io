@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>Class of 3 Al-Battani Photobooth</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Dancing+Script:wght@700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Dancing+Script:wght@700&family=Cinzel:wght@600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <style>
 /* Kiosk photobooth for iPad: black frame, 3 snaps, receipt print */
@@ -94,7 +94,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transfor
 
 <div class="modal hide" id="settings"><div class="set">
   <h2>Booth settings</h2>
-  <p>Only for the person running the booth. Saved on this iPad. <b>App version 14</b> (no QR on receipt).</p>
+  <p>Only for the person running the booth. Saved on this iPad. <b>App version 17</b> (no QR on receipt).</p>
   <label for="sScript">Google Apps Script URL</label><input id="sScript" placeholder="https://script.google.com/macros/s/…/exec">
   <label for="sKey">Secret key (same as in the script)</label><input id="sKey">
   <div class="btns" style="margin-top:12px"><button class="b" id="pingBtn">Test Google Drive connection</button></div><p id="pingSt" style="margin:8px 0 0;font-size:15px"></p>
@@ -105,6 +105,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transfor
   <select id="sWidth"><option value="label">4×6 inch label (FlashLabel / shipping label printer)</option><option value="384">58 mm receipt (384 dots)</option><option value="576">80 mm receipt (576 dots)</option></select>
   <label for="sOffX">Label position nudge (mm): left/right, up/down</label><div style="display:flex;gap:10px"><input id="sOffX" type="number" step="1" placeholder="0 (− = left, + = right)"><input id="sOffY" type="number" step="1" placeholder="0 (− = up, + = down)"></div>
   <label for="sStyle">Photo style on the print</label><select id="sStyle"><option value="halftone">Newspaper dots (even, recommended for labels)</option><option value="fine">Fine dots</option><option value="bold">Bold black &amp; white (no dots)</option></select>
+  <label for="sDev">Camera to use</label><select id="sDev"><option value="">Front camera (default)</option></select>
   <label for="sCam">Where is the iPad camera?</label>
   <select id="sCam"><option value="top">Top of the screen</option><option value="left">Left side</option><option value="right">Right side</option></select>
   <div class="btns" style="margin-top:16px"><button class="b" id="bleBtn">Connect Bluetooth printer</button><button class="b" id="testBtn">Test print</button></div>
@@ -115,7 +116,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transfor
 <script>
 {
 const $=id=>document.getElementById(id);
-const TITLE='3 Al-Battani',YEAR='2026',SHOTS=3,SNAP_SECS=3,DONE_SECS=60;
+const TITLE='3 Al-Battani',YEAR='2026',SHOTS=4,SNAP_SECS=3,DONE_SECS=60;
 const DEF={script:'',key:'',folder:'',mode:'share',width:'label',cam:'top'};
 let cfg=Object.assign({},DEF);try{Object.assign(cfg,JSON.parse(localStorage.getItem('albattani-booth')||'{}'))}catch(e){}
 const saveCfg=()=>{try{localStorage.setItem('albattani-booth',JSON.stringify(cfg))}catch(e){}};
@@ -126,7 +127,7 @@ let shots=[],busy=false,receipt=null,doneTimer=null,wake=null;
 let camErr='';
 async function startCam(){
   try{if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error(location.protocol!=='https:'?'this page is not opened from an https:// link':'this browser has no camera access');
-    if(!$('vid').srcObject){const st=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:1920},height:{ideal:1440}},audio:false});$('vid').srcObject=st}
+    if(!$('vid').srcObject){const v=cfg.dev?{deviceId:{exact:cfg.dev},width:{ideal:1920},height:{ideal:1440}}:{facingMode:'user',width:{ideal:1920},height:{ideal:1440}};let st;try{st=await navigator.mediaDevices.getUserMedia({video:v,audio:false})}catch(e){if(!cfg.dev)throw e;st=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false})}$('vid').srcObject=st}
     await $('vid').play();for(let i=0;i<30&&!$('vid').videoWidth;i++)await wait(100);camErr=$('vid').videoWidth?'':'the camera did not start'}
   catch(e){camErr=e.name==='NotAllowedError'?'camera permission was blocked':(e.message||String(e))}
   return !camErr;
@@ -139,7 +140,7 @@ function sample(i){const c=document.createElement('canvas');c.width=640;c.height
   x.fillStyle='#333';[[190,220],[250,220],[390,220],[450,220]].forEach(([a,b])=>{x.beginPath();x.arc(a,b,12,0,7);x.fill()});
   x.lineWidth=8;x.strokeStyle='#333';x.lineCap='round';[[220,255],[420,255]].forEach(([a,b])=>{x.beginPath();x.arc(a,b,40,.2,Math.PI-.2);x.stroke()});
   x.fillStyle='#fff';x.font='700 44px Fredoka, sans-serif';x.textAlign='center';x.fillText('Sample photo '+(i+1),320,430);return c}
-async function samplePreview(){if(busy)return;busy=true;$('idle').classList.remove('err');$('camErr').classList.add('hide');$('idle').classList.add('hide');shots=[0,1,2].map(sample);thumbs();await finish()}
+async function samplePreview(){if(busy)return;busy=true;$('idle').classList.remove('err');$('camErr').classList.add('hide');$('idle').classList.add('hide');shots=Array.from({length:SHOTS},(_,i)=>sample(i%3));thumbs();await finish()}
 function fitView(){const r=$('mid').getBoundingClientRect(),w=Math.min(r.width,r.height*4/3);$('view').style.width=w+'px';$('view').style.height=w*3/4+'px'}
 new ResizeObserver(fitView).observe($('mid'));
 function grab(){const v=$('vid'),vw=v.videoWidth,vh=v.videoHeight,tw=Math.min(vw,vh*4/3),th=tw*3/4;
@@ -210,9 +211,27 @@ function filmStrip(x,X,k,smooth){
   return {sw,H,rects};
 }
 const stripH=k=>{const pw=Math.round(384*k)-2*Math.round(40*k);return Math.round(118*k)+SHOTS*Math.round(pw*.75)+(SHOTS-1)*Math.round(12*k)+Math.round(92*k)};
+const SCHOOL='SK SAUJANA UTAMA';
+function spaced(x,t,cx,cy,sp){const ws=[...t].map(ch=>x.measureText(ch).width),tot=ws.reduce((a,b)=>a+b,0)+sp*(t.length-1);let px=cx-tot/2;x.textAlign='left';[...t].forEach((ch,i)=>{x.fillText(ch,px,cy);px+=ws[i]+sp});x.textAlign='center';return tot}
+function fitSpaced(x,t,max,size,sp){let f=size;for(;f>10;f--){x.font=`600 ${f}px Cinzel, Georgia, serif`;const w=[...t].reduce((a,ch)=>a+x.measureText(ch).width,0)+sp*(t.length-1);if(w<=max)break}return f}
+function whiteStrip(x,X,Y,sw,H,mode){
+  const s=sw/400,pad=Math.round(18*s),gap=Math.round(8*s),T=Math.round(250*s),pw=Math.round(sw-2*pad),ph=Math.floor((H-pad-T-(SHOTS-1)*gap)/SHOTS),rects=[];
+  x.fillStyle='#fff';x.fillRect(X,Y,sw,H);
+  shots.forEach((sh,i)=>{const a=Math.round(X+pad),b=Math.round(Y+pad+i*(ph+gap));drawCover(x,sh,a,b,pw,ph);rects.push([a,b,pw,ph])});
+  if(mode==='bw')rects.forEach(([a,b,w,h])=>{const d=x.getImageData(a,b,w,h),p=d.data;for(let i=0;i<p.length;i+=4){let l=.299*p[i]+.587*p[i+1]+.114*p[i+2];l=(l-128)*1.1+128;p[i]=p[i+1]=p[i+2]=l}x.putImageData(d,a,b)});
+  const ty=Y+H-T,cx=X+sw/2;x.fillStyle='#111';x.strokeStyle='#111';x.textBaseline='middle';x.textAlign='center';
+  fitScript(x,TITLE,pw-10*s,Math.round(64*s));x.fillText(TITLE,cx,ty+78*s);
+  x.lineWidth=Math.max(1,2*s);x.beginPath();x.moveTo(cx-34*s,ty+132*s);x.lineTo(cx+34*s,ty+132*s);x.stroke();
+  fitSpaced(x,YEAR,pw,Math.round(30*s),6*s);spaced(x,YEAR,cx,ty+168*s,6*s);
+  fitSpaced(x,SCHOOL,pw-8*s,Math.round(24*s),4*s);spaced(x,SCHOOL,cx,ty+208*s,4*s);
+  return rects;
+}
+function drawCover(x,img,a,b,w,h){if(!w||!h)return;const iw=img.width,ih=img.height,r=Math.max(w/iw,h/ih),cw=w/r,ch=h/r;x.drawImage(img,(iw-cw)/2,(ih-ch)/2,cw,ch,a,b,w,h)}
 function stripColor(){
-  const k=2,sw=Math.round(384*k),W=sw*2,H=stripH(k),c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');
-  filmStrip(x,0,k,true);filmStrip(x,sw,k,false);return c;
+  const sw=600,H=1800,c=document.createElement('canvas');c.width=sw*2;c.height=H;const x=c.getContext('2d');
+  whiteStrip(x,0,0,sw,H,'bw');whiteStrip(x,sw,0,sw,H,'color');
+  x.strokeStyle='#ddd';x.lineWidth=2;x.setLineDash([10,10]);x.beginPath();x.moveTo(sw,0);x.lineTo(sw,H);x.stroke();x.setLineDash([]);
+  return c;
 }
 
 // ---------- receipt (1-bit for thermal printer) ----------
@@ -220,21 +239,13 @@ function drawQr(x,link,X,Y,size){const q=qrcode(0,'M');q.addData(link);q.make();
   x.fillStyle='#fff';x.fillRect(X,Y,size,size);x.fillStyle='#000';
   for(let r=0;r<n;r++)for(let k=0;k<n;k++)if(q.isDark(r,k))x.fillRect(Math.floor(X+(k+1)*m),Math.floor(Y+(r+1)*m),Math.ceil(m),Math.ceil(m))}
 function buildReceipt(link){
-  const label=cfg.width==='label',W=label?768:+cfg.width,s=W/384,k=s/2,blackH=stripH(k),c=document.createElement('canvas');c.width=W;c.height=blackH+Math.round(560*s);
-  const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,W,c.height);
-  const A=filmStrip(x,0,k,false),B=filmStrip(x,W/2,k,false),photos=[...A.rects,...B.rects];
-  x.textAlign='center';x.textBaseline='middle';
-  let y=blackH+Math.round(18*s);x.fillStyle='#000';
-  x.font=`600 ${Math.round(18*s)}px Fredoka, sans-serif`;
-  x.fillText(new Date().toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}),W/2,y+Math.round(10*s));y+=Math.round(50*s);
-  const H=y,out=document.createElement('canvas');out.width=W;out.height=H;out.getContext('2d').drawImage(c,0,0);
-  if(!label)return mono(out,photos);
-  // 4x6 label = 100x150 mm at 203 dpi = exactly 800x1200 dots, dithered here so the label app prints it 1:1
-  const LW=800,LH=1200,sc=Math.min((LW-32)/W,(LH-32)/H),dw=Math.round(W*sc),dh=Math.round(H*sc);
-  const X0=Math.round((LW-dw)/2+(+cfg.offX||0)*8),Y0=Math.round((LH-dh)/2+(+cfg.offY||0)*8),lc=document.createElement('canvas');lc.width=LW;lc.height=LH;
-  const lx=lc.getContext('2d');lx.fillStyle='#fff';lx.fillRect(0,0,LW,LH);lx.imageSmoothingQuality='high';lx.drawImage(out,X0,Y0,dw,dh);
-  const rects=photos.map(([a,b,w,h])=>[Math.max(0,Math.round(X0+a*sc)),Math.max(0,Math.round(Y0+b*sc)),Math.round(w*sc),Math.round(h*sc)]).map(([a,b,w,h])=>[a,b,Math.min(w,LW-a),Math.min(h,LH-b)]);
-  const m=mono(lc,rects);m.bits=null;return m;
+  const label=cfg.width==='label',W=label?800:+cfg.width,H=Math.round(W*1.5),sw=W/2,c=document.createElement('canvas');c.width=W;c.height=H;
+  const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,W,H);
+  const ox=label?Math.round((+cfg.offX||0)*8):0,oy=label?Math.round((+cfg.offY||0)*8):0;
+  const rects=[...whiteStrip(x,ox,oy,sw,H,'raw'),...whiteStrip(x,ox+sw,oy,sw,H,'raw')];
+  x.fillStyle='#000';for(let y=oy+6;y<oy+H-6;y+=14)x.fillRect(ox+sw-1,y,2,6);
+  const r=rects.map(([a,b,w,h])=>{const A=Math.max(0,a),B=Math.max(0,b);return [A,B,Math.max(0,Math.min(w,W-A)),Math.max(0,Math.min(h,H-B))]});
+  const m=mono(c,r);if(label)m.bits=null;return m;
 }
 function mono(c,photos){
   const W=c.width,H=c.height,x=c.getContext('2d'),im=x.getImageData(0,0,W,H),d=im.data,g=new Float32Array(W*H),bits=new Uint8Array(W*H);
@@ -343,10 +354,12 @@ $('printBtn').onclick=()=>{$('printBtn').classList.toggle('hide',cfg.mode!=='sha
 let hold=null;
 $('gear').addEventListener('pointerdown',()=>{hold=setTimeout(openSet,900)});
 ['pointerup','pointerleave','pointercancel'].forEach(ev=>$('gear').addEventListener(ev,()=>clearTimeout(hold)));
-function openSet(){$('sScript').value=cfg.script;$('sKey').value=cfg.key;$('sFolder').value=cfg.folder;$('sMode').value=cfg.mode;$('sWidth').value=String(cfg.width);$('sCam').value=cfg.cam;$('sStyle').value=cfg.style||'halftone';$('sOffX').value=cfg.offX||'';$('sOffY').value=cfg.offY||'';
+function openSet(){$('sScript').value=cfg.script;$('sKey').value=cfg.key;$('sFolder').value=cfg.folder;$('sMode').value=cfg.mode;$('sWidth').value=String(cfg.width);$('sCam').value=cfg.cam;listCams();$('sStyle').value=cfg.style||'halftone';$('sOffX').value=cfg.offX||'';$('sOffY').value=cfg.offY||'';
   if(!navigator.bluetooth)bleSt('No Bluetooth in this browser. For Bluetooth printing on iPad, open this page in Bluefy.');$('settings').classList.remove('hide')}
-function readSet(){cfg.script=$('sScript').value.trim();cfg.key=$('sKey').value.trim();cfg.folder=$('sFolder').value.trim();cfg.mode=$('sMode').value;cfg.width=$('sWidth').value==='label'?'label':+$('sWidth').value;cfg.cam=$('sCam').value;cfg.style=$('sStyle').value;cfg.offX=+$('sOffX').value||0;cfg.offY=+$('sOffY').value||0;saveCfg();idleQr()}
-['sScript','sKey','sFolder','sMode','sWidth','sCam','sStyle','sOffX','sOffY'].forEach(id=>$(id).addEventListener('change',readSet));
+async function listCams(){try{const ds=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='videoinput');
+  $('sDev').innerHTML='<option value="">Front camera (default)</option>'+ds.map((d,i)=>`<option value="${d.deviceId}">${(d.label||'Camera '+(i+1)).replace(/</g,'&lt;')}</option>`).join('');$('sDev').value=cfg.dev||''}catch(e){}}
+function readSet(){const oldDev=cfg.dev;cfg.script=$('sScript').value.trim();cfg.key=$('sKey').value.trim();cfg.folder=$('sFolder').value.trim();cfg.mode=$('sMode').value;cfg.width=$('sWidth').value==='label'?'label':+$('sWidth').value;cfg.cam=$('sCam').value;cfg.style=$('sStyle').value;cfg.dev=$('sDev').value;cfg.offX=+$('sOffX').value||0;cfg.offY=+$('sOffY').value||0;saveCfg();idleQr();if(cfg.dev!==oldDev){const st=$('vid').srcObject;if(st)st.getTracks().forEach(t=>t.stop());$('vid').srcObject=null;startCam()}}
+['sScript','sKey','sFolder','sMode','sWidth','sCam','sDev','sStyle','sOffX','sOffY'].forEach(id=>$(id).addEventListener('change',readSet));
 $('closeSet').onclick=()=>{readSet();$('settings').classList.add('hide')};
 function idleQr(){$('idleQr').classList.toggle('hide',!cfg.folder);qrSvg($('idleQrS'),cfg.folder)}
 
