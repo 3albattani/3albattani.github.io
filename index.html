@@ -94,7 +94,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transfor
 
 <div class="modal hide" id="settings"><div class="set">
   <h2>Booth settings</h2>
-  <p>Only for the person running the booth. Saved on this iPad. <b>App version 17</b> (no QR on receipt).</p>
+  <p>Only for the person running the booth. Saved on this iPad. <b>App version 19</b> (no QR on receipt).</p>
   <label for="sScript">Google Apps Script URL</label><input id="sScript" placeholder="https://script.google.com/macros/s/…/exec">
   <label for="sKey">Secret key (same as in the script)</label><input id="sKey">
   <div class="btns" style="margin-top:12px"><button class="b" id="pingBtn">Test Google Drive connection</button></div><p id="pingSt" style="margin:8px 0 0;font-size:15px"></p>
@@ -104,7 +104,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transfor
   <label for="sWidth">Paper width</label>
   <select id="sWidth"><option value="label">4×6 inch label (FlashLabel / shipping label printer)</option><option value="384">58 mm receipt (384 dots)</option><option value="576">80 mm receipt (576 dots)</option></select>
   <label for="sOffX">Label position nudge (mm): left/right, up/down</label><div style="display:flex;gap:10px"><input id="sOffX" type="number" step="1" placeholder="0 (− = left, + = right)"><input id="sOffY" type="number" step="1" placeholder="0 (− = up, + = down)"></div>
-  <label for="sStyle">Photo style on the print</label><select id="sStyle"><option value="halftone">Newspaper dots (even, recommended for labels)</option><option value="fine">Fine dots</option><option value="bold">Bold black &amp; white (no dots)</option></select>
+  <label for="sStyle">Photo style on the print</label><select id="sStyle"><option value="fine">Fine dots (recommended)</option><option value="halftone">Newspaper dots</option><option value="bold">Bold black &amp; white (no dots)</option></select>
   <label for="sDev">Camera to use</label><select id="sDev"><option value="">Front camera (default)</option></select>
   <label for="sCam">Where is the iPad camera?</label>
   <select id="sCam"><option value="top">Top of the screen</option><option value="left">Left side</option><option value="right">Right side</option></select>
@@ -227,11 +227,22 @@ function whiteStrip(x,X,Y,sw,H,mode){
   return rects;
 }
 function drawCover(x,img,a,b,w,h){if(!w||!h)return;const iw=img.width,ih=img.height,r=Math.max(w/iw,h/ih),cw=w/r,ch=h/r;x.drawImage(img,(iw-cw)/2,(ih-ch)/2,cw,ch,a,b,w,h)}
+function gridLayout(x,ox,oy,W,H,mode){
+  // 2x2 grid of uncropped 4:3 photos, text block underneath
+  const s=W/800,m=Math.round(26*s),g=Math.round(14*s),pw=Math.floor((W-2*m-g)/2),ph=Math.round(pw*3/4),rects=[];
+  x.fillStyle='#fff';x.fillRect(ox,oy,W,H);
+  shots.forEach((sh,i)=>{const a=Math.round(ox+m+(i%2)*(pw+g)),b=Math.round(oy+m+Math.floor(i/2)*(ph+g));drawCover(x,sh,a,b,pw,ph);rects.push([a,b,pw,ph])});
+  if(mode==='bw')rects.forEach(([a,b,w,h])=>{const d=x.getImageData(a,b,w,h),p=d.data;for(let i=0;i<p.length;i+=4){let l=.299*p[i]+.587*p[i+1]+.114*p[i+2];l=(l-128)*1.1+128;p[i]=p[i+1]=p[i+2]=l}x.putImageData(d,a,b)});
+  const top=oy+m+2*ph+g,cy=top+(oy+H-top)/2,cx=ox+W/2,tw=W-2*m-40*s;
+  x.fillStyle='#111';x.strokeStyle='#111';x.textBaseline='middle';x.textAlign='center';
+  fitScript(x,TITLE,tw,Math.round(120*s));x.fillText(TITLE,cx,cy-120*s);
+  x.lineWidth=Math.max(1,3*s);x.beginPath();x.moveTo(cx-60*s,cy-20*s);x.lineTo(cx+60*s,cy-20*s);x.stroke();
+  fitSpaced(x,YEAR,tw,Math.round(54*s),12*s);spaced(x,YEAR,cx,cy+50*s,12*s);
+  fitSpaced(x,SCHOOL,tw,Math.round(40*s),8*s);spaced(x,SCHOOL,cx,cy+122*s,8*s);
+  return rects;
+}
 function stripColor(){
-  const sw=600,H=1800,c=document.createElement('canvas');c.width=sw*2;c.height=H;const x=c.getContext('2d');
-  whiteStrip(x,0,0,sw,H,'bw');whiteStrip(x,sw,0,sw,H,'color');
-  x.strokeStyle='#ddd';x.lineWidth=2;x.setLineDash([10,10]);x.beginPath();x.moveTo(sw,0);x.lineTo(sw,H);x.stroke();x.setLineDash([]);
-  return c;
+  const W=1600,H=2400,c=document.createElement('canvas');c.width=W;c.height=H;gridLayout(c.getContext('2d'),0,0,W,H,'color');return c;
 }
 
 // ---------- receipt (1-bit for thermal printer) ----------
@@ -239,11 +250,10 @@ function drawQr(x,link,X,Y,size){const q=qrcode(0,'M');q.addData(link);q.make();
   x.fillStyle='#fff';x.fillRect(X,Y,size,size);x.fillStyle='#000';
   for(let r=0;r<n;r++)for(let k=0;k<n;k++)if(q.isDark(r,k))x.fillRect(Math.floor(X+(k+1)*m),Math.floor(Y+(r+1)*m),Math.ceil(m),Math.ceil(m))}
 function buildReceipt(link){
-  const label=cfg.width==='label',W=label?800:+cfg.width,H=Math.round(W*1.5),sw=W/2,c=document.createElement('canvas');c.width=W;c.height=H;
+  const label=cfg.width==='label',W=label?800:+cfg.width,H=Math.round(W*1.5),c=document.createElement('canvas');c.width=W;c.height=H;
   const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,W,H);
   const ox=label?Math.round((+cfg.offX||0)*8):0,oy=label?Math.round((+cfg.offY||0)*8):0;
-  const rects=[...whiteStrip(x,ox,oy,sw,H,'raw'),...whiteStrip(x,ox+sw,oy,sw,H,'raw')];
-  x.fillStyle='#000';for(let y=oy+6;y<oy+H-6;y+=14)x.fillRect(ox+sw-1,y,2,6);
+  const rects=gridLayout(x,ox,oy,W,H,'raw');
   const r=rects.map(([a,b,w,h])=>{const A=Math.max(0,a),B=Math.max(0,b);return [A,B,Math.max(0,Math.min(w,W-A)),Math.max(0,Math.min(h,H-B))]});
   const m=mono(c,r);if(label)m.bits=null;return m;
 }
@@ -252,7 +262,7 @@ function mono(c,photos){
   for(let i=0;i<W*H;i++)g[i]=.299*d[i*4]+.587*d[i*4+1]+.114*d[i*4+2];
   const inP=new Uint8Array(W*H);
   photos.forEach(([px,py,pw,ph])=>{for(let yy=py;yy<py+ph&&yy<H;yy++)for(let xx=px;xx<px+pw;xx++){const i=yy*W+xx;inP[i]=1;g[i]=Math.min(255,Math.max(0,(g[i]-128)*1.1+128+6))}});
-  const st=cfg.style||'halftone',P=6,R2=Math.SQRT1_2;
+  const st=cfg.style||'fine',P=6,R2=Math.SQRT1_2;
   for(let yy=0;yy<H;yy++)for(let xx=0;xx<W;xx++){const i=yy*W+xx;
     if(!inP[i]){bits[i]=g[i]<140?1:0;continue}
     if(st==='bold'){bits[i]=g[i]<118?1:0;continue}
@@ -354,7 +364,7 @@ $('printBtn').onclick=()=>{$('printBtn').classList.toggle('hide',cfg.mode!=='sha
 let hold=null;
 $('gear').addEventListener('pointerdown',()=>{hold=setTimeout(openSet,900)});
 ['pointerup','pointerleave','pointercancel'].forEach(ev=>$('gear').addEventListener(ev,()=>clearTimeout(hold)));
-function openSet(){$('sScript').value=cfg.script;$('sKey').value=cfg.key;$('sFolder').value=cfg.folder;$('sMode').value=cfg.mode;$('sWidth').value=String(cfg.width);$('sCam').value=cfg.cam;listCams();$('sStyle').value=cfg.style||'halftone';$('sOffX').value=cfg.offX||'';$('sOffY').value=cfg.offY||'';
+function openSet(){$('sScript').value=cfg.script;$('sKey').value=cfg.key;$('sFolder').value=cfg.folder;$('sMode').value=cfg.mode;$('sWidth').value=String(cfg.width);$('sCam').value=cfg.cam;listCams();$('sStyle').value=cfg.style||'fine';$('sOffX').value=cfg.offX||'';$('sOffY').value=cfg.offY||'';
   if(!navigator.bluetooth)bleSt('No Bluetooth in this browser. For Bluetooth printing on iPad, open this page in Bluefy.');$('settings').classList.remove('hide')}
 async function listCams(){try{const ds=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='videoinput');
   $('sDev').innerHTML='<option value="">Front camera (default)</option>'+ds.map((d,i)=>`<option value="${d.deviceId}">${(d.label||'Camera '+(i+1)).replace(/</g,'&lt;')}</option>`).join('');$('sDev').value=cfg.dev||''}catch(e){}}
