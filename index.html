@@ -94,7 +94,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transfor
 
 <div class="modal hide" id="settings"><div class="set">
   <h2>Booth settings</h2>
-  <p>Only for the person running the booth. Saved on this iPad. <b>App version 19</b> (no QR on receipt).</p>
+  <p>Only for the person running the booth. Saved on this iPad. <b>App version 20</b> (no QR on receipt).</p>
   <label for="sScript">Google Apps Script URL</label><input id="sScript" placeholder="https://script.google.com/macros/s/…/exec">
   <label for="sKey">Secret key (same as in the script)</label><input id="sKey">
   <div class="btns" style="margin-top:12px"><button class="b" id="pingBtn">Test Google Drive connection</button></div><p id="pingSt" style="margin:8px 0 0;font-size:15px"></p>
@@ -241,8 +241,21 @@ function gridLayout(x,ox,oy,W,H,mode){
   fitSpaced(x,SCHOOL,tw,Math.round(40*s),8*s);spaced(x,SCHOOL,cx,cy+122*s,8*s);
   return rects;
 }
+function wideLayout(x,W,H,mode){
+  // landscape: 2x2 grid of uncropped 4:3 photos on the left, text running up a column on the right
+  const s=H/800,m=Math.round(24*s),g=Math.round(14*s),ph=Math.floor((H-2*m-g)/2),pw=Math.floor(ph*4/3),rects=[];
+  x.fillStyle='#fff';x.fillRect(0,0,W,H);
+  shots.forEach((sh,i)=>{const a=m+(i%2)*(pw+g),b=m+Math.floor(i/2)*(ph+g);drawCover(x,sh,a,b,pw,ph);rects.push([a,b,pw,ph])});
+  if(mode==='bw')rects.forEach(([a,b,w,h])=>{const d=x.getImageData(a,b,w,h),p=d.data;for(let i=0;i<p.length;i+=4){let l=.299*p[i]+.587*p[i+1]+.114*p[i+2];l=(l-128)*1.1+128;p[i]=p[i+1]=p[i+2]=l}x.putImageData(d,a,b)});
+  const colX=m+2*pw+g,colW=W-m-colX,cx=colX+colW/2,len=H-2*m-20*s;
+  x.save();x.translate(cx,H/2);x.rotate(-Math.PI/2);x.fillStyle='#111';x.strokeStyle='#111';x.textBaseline='middle';x.textAlign='center';
+  fitScript(x,TITLE,len,Math.round(Math.min(78*s,colW*.55)));x.fillText(TITLE,0,-colW*.17);
+  const sub=YEAR+'  ·  '+SCHOOL;fitSpaced(x,sub,len,Math.round(Math.min(26*s,colW*.2)),5*s);spaced(x,sub,0,colW*.27,5*s);
+  x.restore();
+  return rects;
+}
 function stripColor(){
-  const W=1600,H=2400,c=document.createElement('canvas');c.width=W;c.height=H;gridLayout(c.getContext('2d'),0,0,W,H,'color');return c;
+  const W=2400,H=1600,c=document.createElement('canvas');c.width=W;c.height=H;wideLayout(c.getContext('2d'),W,H,'color');return c;
 }
 
 // ---------- receipt (1-bit for thermal printer) ----------
@@ -250,11 +263,13 @@ function drawQr(x,link,X,Y,size){const q=qrcode(0,'M');q.addData(link);q.make();
   x.fillStyle='#fff';x.fillRect(X,Y,size,size);x.fillStyle='#000';
   for(let r=0;r<n;r++)for(let k=0;k<n;k++)if(q.isDark(r,k))x.fillRect(Math.floor(X+(k+1)*m),Math.floor(Y+(r+1)*m),Math.ceil(m),Math.ceil(m))}
 function buildReceipt(link){
-  const label=cfg.width==='label',W=label?800:+cfg.width,H=Math.round(W*1.5),c=document.createElement('canvas');c.width=W;c.height=H;
-  const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,W,H);
+  // drawn landscape, then turned 90 degrees onto the portrait label/receipt
+  const label=cfg.width==='label',PW=label?800:+cfg.width,PH=Math.round(PW*1.5);
+  const L=document.createElement('canvas');L.width=PH;L.height=PW;const rects=wideLayout(L.getContext('2d'),PH,PW,'raw');
+  const c=document.createElement('canvas');c.width=PW;c.height=PH;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,PW,PH);
   const ox=label?Math.round((+cfg.offX||0)*8):0,oy=label?Math.round((+cfg.offY||0)*8):0;
-  const rects=gridLayout(x,ox,oy,W,H,'raw');
-  const r=rects.map(([a,b,w,h])=>{const A=Math.max(0,a),B=Math.max(0,b);return [A,B,Math.max(0,Math.min(w,W-A)),Math.max(0,Math.min(h,H-B))]});
+  x.save();x.translate(PW+ox,oy);x.rotate(Math.PI/2);x.drawImage(L,0,0);x.restore();
+  const r=rects.map(([a,b,w,h])=>[PW-(b+h)+ox,a+oy,h,w]).map(([a,b,w,h])=>{const A=Math.max(0,a),B=Math.max(0,b);return [A,B,Math.max(0,Math.min(w,PW-A)),Math.max(0,Math.min(h,PH-B))]});
   const m=mono(c,r);if(label)m.bits=null;return m;
 }
 function mono(c,photos){
