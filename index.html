@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>Class of 3 Al-Battani Photobooth</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Dancing+Script:wght@700&family=Cinzel:wght@600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Dancing+Script:wght@700&family=Great+Vibes&family=Mali:wght@700&family=Cinzel:wght@600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <style>
 /* Kiosk photobooth for iPad: black frame, 3 snaps, receipt print */
@@ -14,7 +14,7 @@
 *{box-sizing:border-box;min-width:0;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;background:#000;color:#fff;font:500 17px/1.4 Fredoka,system-ui,sans-serif;overflow:hidden;-webkit-user-select:none;user-select:none}
 #stage{position:fixed;inset:0;display:grid;grid-template-rows:auto minmax(0,1fr) auto auto;padding:max(14px,env(safe-area-inset-top)) 18px max(14px,env(safe-area-inset-bottom))}
-.title{font:700 clamp(46px,8vw,84px) 'Dancing Script',cursive;text-align:center;line-height:1.05;padding:4px 0 14px}
+.title{font:700 clamp(40px,7vw,72px) Mali,'Comic Sans MS',sans-serif;text-align:center;line-height:1.05;padding:4px 0 14px}
 .mid{display:grid;place-items:center;min-height:0}
 .view{position:relative;border-radius:20px;overflow:hidden;background:#141414}
 video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
@@ -94,7 +94,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transfor
 
 <div class="modal hide" id="settings"><div class="set">
   <h2>Booth settings</h2>
-  <p>Only for the person running the booth. Saved on this iPad. <b>App version 21</b> (no QR on receipt).</p>
+  <p>Only for the person running the booth. Saved on this iPad. <b>App version 30</b> (no QR on receipt).</p>
   <label for="sScript">Google Apps Script URL</label><input id="sScript" placeholder="https://script.google.com/macros/s/…/exec">
   <label for="sKey">Secret key (same as in the script)</label><input id="sKey">
   <div class="btns" style="margin-top:12px"><button class="b" id="pingBtn">Test Google Drive connection</button></div><p id="pingSt" style="margin:8px 0 0;font-size:15px"></p>
@@ -106,6 +106,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transfor
   <label for="sOffX">Label position nudge (mm): left/right, up/down</label><div style="display:flex;gap:10px"><input id="sOffX" type="number" step="1" placeholder="0 (− = left, + = right)"><input id="sOffY" type="number" step="1" placeholder="0 (− = up, + = down)"></div>
   <label class="hide" for="sStyle">Photo style on the print</label><select class="hide" id="sStyle"><option value="fine">Fine dots (recommended)</option><option value="halftone">Newspaper dots</option><option value="bold">Bold black &amp; white (no dots)</option></select>
   <label for="sDev">Camera to use</label><select id="sDev"><option value="">Front camera (default)</option></select>
+  <label for="sZoom">Camera zoom (cuts off the wide edges)</label><select id="sZoom"><option value="1">1× (full wide view)</option><option value="1.15">1.15×</option><option value="1.3">1.3× (recommended)</option><option value="1.5">1.5×</option><option value="1.75">1.75×</option><option value="2">2×</option></select>
   <label for="sCam">Where is the iPad camera?</label>
   <select id="sCam"><option value="top">Top of the screen</option><option value="left">Left side</option><option value="right">Right side</option></select>
   <div class="btns" style="margin-top:16px"><button class="b" id="bleBtn">Connect Bluetooth printer</button><button class="b" id="testBtn">Test print</button></div>
@@ -144,7 +145,8 @@ async function samplePreview(){if(busy)return;busy=true;$('idle').classList.remo
 function fitView(){const r=$('mid').getBoundingClientRect(),w=Math.min(r.width,r.height*4/5);$('view').style.width=w+'px';$('view').style.height=w*5/4+'px'}
 new ResizeObserver(fitView).observe($('mid'));
 const ASPECT=4/5;
-function grab(){const v=$('vid'),vw=v.videoWidth,vh=v.videoHeight,tw=Math.min(vw,vh*ASPECT),th=tw/ASPECT;
+function applyZoom(){$('vid').style.transform=`scaleX(-1) scale(${+cfg.zoom||1.3})`}
+function grab(){const v=$('vid'),vw=v.videoWidth,vh=v.videoHeight,z=+cfg.zoom||1.3,tw=Math.min(vw,vh*ASPECT)/z,th=tw/ASPECT;
   const c=document.createElement('canvas');c.width=Math.round(tw);c.height=Math.round(th);const x=c.getContext('2d');
   x.translate(c.width,0);x.scale(-1,1);x.drawImage(v,(vw-tw)/2,(vh-th)/2,tw,th,0,0,c.width,c.height);return c}
 function showMsg(h){$('msg').innerHTML=h;$('msg').classList.toggle('hide',!h)}
@@ -194,7 +196,7 @@ function deco(x,W,H,s,avoid,title,foot){
 function rr(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath()}
 function fitFont(c,t,max,size){let f=size;c.font=`700 ${f}px Fredoka, sans-serif`;while(c.measureText(t).width>max&&f>14){f-=1;c.font=`700 ${f}px Fredoka, sans-serif`}return f}
 // ---------- film-strip frame ----------
-const SCRIPT=n=>`700 ${n}px "Dancing Script", cursive`;
+const SCRIPT=n=>`700 ${n}px Mali, "Comic Sans MS", sans-serif`;
 function fitScript(c,t,max,size){let f=size;c.font=SCRIPT(f);while(c.measureText(t).width>max&&f>14){f-=1;c.font=SCRIPT(f)}return f}
 function holes(x,X,Y,w,h,s){const hw=Math.round(15*s),hh=Math.round(20*s),step=Math.round(34*s),ox=Math.round(11*s),r=Math.max(2,3*s);x.fillStyle='#fff';
   for(let yy=Y+Math.round(10*s);yy+hh<=Y+h-Math.round(6*s);yy+=step){rr(x,X+ox,yy,hw,hh,r);x.fill();rr(x,X+w-ox-hw,yy,hw,hh,r);x.fill()}}
@@ -255,19 +257,36 @@ function wideLayout(x,W,H,mode){
   x.restore();
   return rects;
 }
+// Fun kids header: two neat swags of bunting, flags hanging straight down (retro colours, stripes and dots)
+function kidsBand(x,X,Y,W,h){
+  const F=[['#f5b335','plain'],['#ef5a3c','stripes'],['#2e9c6f','plain'],['#4a6fbf','dots']];
+  const swags=W>h*9?2:1,sw=W/swags,y0=Y+h*.06,sag=h*.22,L=h*.66,fw=L*.82,per=Math.max(3,Math.floor(sw/(fw*1.45)));
+  x.strokeStyle='#f0923a';x.lineWidth=Math.max(1.5,h*.04);x.lineCap='round';
+  let k=0;
+  for(let q=0;q<swags;q++){const sx=X+q*sw,yAt=t=>y0+4*sag*t*(1-t);
+    x.beginPath();for(let i=0;i<=40;i++){const t=i/40;i?x.lineTo(sx+t*sw,yAt(t)):x.moveTo(sx,yAt(0))}x.stroke();
+    for(let i=0;i<per;i++){const t=(i+.5)/per,cx=sx+t*sw,cy=yAt(t)-h*.01,[c,pat]=F[k++%F.length];
+      x.save();x.translate(cx,cy);x.beginPath();x.moveTo(-fw/2,0);x.lineTo(fw/2,0);x.quadraticCurveTo(fw*.2,L*.55,0,L);x.quadraticCurveTo(-fw*.2,L*.55,-fw/2,0);x.closePath();
+      x.fillStyle=c;x.fill();x.clip();
+      if(pat==='stripes'){x.strokeStyle='rgba(255,255,255,.38)';x.lineWidth=Math.max(1,h*.035);for(let d=-L;d<fw+L;d+=h*.12){x.beginPath();x.moveTo(-fw/2+d,0);x.lineTo(-fw/2+d-L,L);x.stroke()}}
+      if(pat==='dots'){x.fillStyle='#f5b335';const st=h*.14;for(let yy=st*.7,r=0;yy<L;yy+=st,r++)for(let xx=-fw/2+(r%2?st/2:0);xx<fw/2;xx+=st){x.beginPath();x.arc(xx,yy,h*.032,0,7);x.fill()}}
+      x.restore()}
+    x.fillStyle='#f0923a';[sx,sx+sw].forEach(px=>{x.beginPath();x.arc(Math.min(Math.max(px,X+h*.05),X+W-h*.05),y0,h*.05,0,7);x.fill()})}
+}
 function portraitLayout(x,ox,oy,W,H){
   // 2x2 grid of portrait photos, title block underneath (colour)
-  const s=W/800,m=Math.round(32*s),g=Math.round(14*s),T=Math.round(300*s);
-  let pw=Math.floor((W-2*m-g)/2),ph=Math.round(pw/ASPECT);const maxPh=Math.floor((H-2*m-g-T)/2);if(ph>maxPh){ph=maxPh;pw=Math.round(ph*ASPECT)}
-  const gx=ox+Math.round((W-2*pw-g)/2);
+  const s=W/800,m=Math.round(12*s),g=Math.round(8*s),T=Math.round(190*s);
+  const bh=Math.round(78*s),pw=Math.floor((W-2*m-g)/2),ph=Math.floor((H-2*m-g-T-bh-g)/2);
+  const gx=ox+Math.round((W-2*pw-g)/2),gy=oy+m+bh+g;
   x.fillStyle='#fff';x.fillRect(ox,oy,W,H);
-  shots.forEach((sh,i)=>drawCover(x,sh,gx+(i%2)*(pw+g),Math.round(oy+m+Math.floor(i/2)*(ph+g)),pw,ph));
-  const top=oy+m+2*ph+g,cy=top+(oy+H-top)/2,cx=ox+W/2,tw=W-2*m-60*s;
+  kidsBand(x,ox+m,oy+m,W-2*m,bh);
+  shots.forEach((sh,i)=>drawCover(x,sh,gx+(i%2)*(pw+g),Math.round(gy+Math.floor(i/2)*(ph+g)),pw,ph));
+  const top=gy+2*ph+g,cy=top+(oy+H-top)/2,cx=ox+W/2,tw=W-2*m-60*s;
   x.fillStyle='#1a1a1a';x.strokeStyle='#1a1a1a';x.textBaseline='middle';x.textAlign='center';
-  fitScript(x,TITLE,tw,Math.round(84*s));x.fillText(TITLE,cx,cy-82*s);
-  x.lineWidth=Math.max(1,2.5*s);x.beginPath();x.moveTo(cx-50*s,cy-18*s);x.lineTo(cx+50*s,cy-18*s);x.stroke();
-  fitSpaced(x,YEAR,tw,Math.round(34*s),9*s);spaced(x,YEAR,cx,cy+26*s,9*s);
-  fitSpaced(x,SCHOOL,tw,Math.round(28*s),7*s);spaced(x,SCHOOL,cx,cy+78*s,7*s);
+  fitScript(x,TITLE,tw,Math.round(58*s));x.fillText(TITLE,cx,cy-46*s);
+  for(let d=-4;d<=4;d++){x.beginPath();x.arc(cx+d*11*s,cy-4*s,2.6*s,0,7);x.fill()}
+  fitSpaced(x,SCHOOL,tw,Math.round(25*s),6*s);spaced(x,SCHOOL,cx,cy+28*s,6*s);
+  fitSpaced(x,YEAR,tw,Math.round(25*s),8*s);spaced(x,YEAR,cx,cy+62*s,8*s);
 }
 function stripColor(){const W=1200,H=1800,c=document.createElement('canvas');c.width=W;c.height=H;portraitLayout(c.getContext('2d'),0,0,W,H);return c}
 
@@ -369,6 +388,7 @@ $('pingBtn').onclick=async()=>{readSet();const el=$('pingSt');if(!cfg.script){el
 // ---------- finish ----------
 function qrSvg(el,link){if(!link||!window.qrcode){el.innerHTML='';return}const q=qrcode(0,'M');q.addData(link);q.make();el.innerHTML=q.createSvgTag({cellSize:8,margin:2,scalable:true})}
 async function finish(){
+  try{await Promise.all([document.fonts.load(SCRIPT(60)),document.fonts.load('600 30px Cinzel')])}catch(e){}
   showMsg('Saving your photos…');
   let link=null,err='';try{link=await upload(stripColor())}catch(e){err=e.name==='AbortError'?'timed out':(e.message||'error')}
   const qrLink=link||cfg.folder||'';
@@ -388,16 +408,16 @@ $('printBtn').onclick=()=>{$('printBtn').classList.toggle('hide',cfg.mode!=='sha
 let hold=null;
 $('gear').addEventListener('pointerdown',()=>{hold=setTimeout(openSet,900)});
 ['pointerup','pointerleave','pointercancel'].forEach(ev=>$('gear').addEventListener(ev,()=>clearTimeout(hold)));
-function openSet(){$('sScript').value=cfg.script;$('sKey').value=cfg.key;$('sFolder').value=cfg.folder;$('sMode').value=cfg.mode;$('sWidth').value=String(cfg.width);$('sCam').value=cfg.cam;listCams();$('sStyle').value=cfg.style||'fine';$('sOffX').value=cfg.offX||'';$('sOffY').value=cfg.offY||'';
+function openSet(){$('sScript').value=cfg.script;$('sKey').value=cfg.key;$('sFolder').value=cfg.folder;$('sMode').value=cfg.mode;$('sWidth').value=String(cfg.width);$('sCam').value=cfg.cam;$('sZoom').value=String(cfg.zoom||1.3);listCams();$('sStyle').value=cfg.style||'fine';$('sOffX').value=cfg.offX||'';$('sOffY').value=cfg.offY||'';
   if(!navigator.bluetooth)bleSt('No Bluetooth in this browser. For Bluetooth printing on iPad, open this page in Bluefy.');$('settings').classList.remove('hide')}
 async function listCams(){try{const ds=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='videoinput');
   $('sDev').innerHTML='<option value="">Front camera (default)</option>'+ds.map((d,i)=>`<option value="${d.deviceId}">${(d.label||'Camera '+(i+1)).replace(/</g,'&lt;')}</option>`).join('');$('sDev').value=cfg.dev||''}catch(e){}}
-function readSet(){const oldDev=cfg.dev;cfg.script=$('sScript').value.trim();cfg.key=$('sKey').value.trim();cfg.folder=$('sFolder').value.trim();cfg.mode=$('sMode').value;cfg.width=$('sWidth').value==='label'?'label':+$('sWidth').value;cfg.cam=$('sCam').value;cfg.style=$('sStyle').value;cfg.dev=$('sDev').value;cfg.offX=+$('sOffX').value||0;cfg.offY=+$('sOffY').value||0;saveCfg();idleQr();if(cfg.dev!==oldDev){const st=$('vid').srcObject;if(st)st.getTracks().forEach(t=>t.stop());$('vid').srcObject=null;startCam()}}
-['sScript','sKey','sFolder','sMode','sWidth','sCam','sDev','sStyle','sOffX','sOffY'].forEach(id=>$(id).addEventListener('change',readSet));
+function readSet(){const oldDev=cfg.dev;cfg.script=$('sScript').value.trim();cfg.key=$('sKey').value.trim();cfg.folder=$('sFolder').value.trim();cfg.mode=$('sMode').value;cfg.width=$('sWidth').value==='label'?'label':+$('sWidth').value;cfg.cam=$('sCam').value;cfg.zoom=+$('sZoom').value;applyZoom();cfg.style=$('sStyle').value;cfg.dev=$('sDev').value;cfg.offX=+$('sOffX').value||0;cfg.offY=+$('sOffY').value||0;saveCfg();idleQr();if(cfg.dev!==oldDev){const st=$('vid').srcObject;if(st)st.getTracks().forEach(t=>t.stop());$('vid').srcObject=null;startCam()}}
+['sScript','sKey','sFolder','sMode','sWidth','sCam','sZoom','sDev','sStyle','sOffX','sOffY'].forEach(id=>$(id).addEventListener('change',readSet));
 $('closeSet').onclick=()=>{readSet();$('settings').classList.add('hide')};
 function idleQr(){$('idleQr').classList.toggle('hide',!cfg.folder);qrSvg($('idleQrS'),cfg.folder)}
 
-thumbs();idleQr();startCam();fitView();setTimeout(()=>{if(!$('vid').videoWidth&&camErr)showCamErr()},3500);
+thumbs();idleQr();applyZoom();startCam();fitView();setTimeout(()=>{if(!$('vid').videoWidth&&camErr)showCamErr()},3500);
 if(!cfg.script)setTimeout(()=>{if(!busy)openSet()},600);
 }
 </script>
